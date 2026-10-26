@@ -2,7 +2,7 @@
 import plotly.express as px
 import streamlit as st
 
-from core import ai, kpi
+from core import ai, kpi, local_nlq
 from core.db import reference_date, now_str
 from views.common import load, header, plot
 
@@ -58,33 +58,51 @@ def _show(db, user, question, sql, explication, kind, tables, statut_ok):
 
 def render(db, user):
     header("Assistant IA", "Posez une question en français sur les données du CIAT")
-    st.info("Les réponses sont générées par une IA (Google Gemini) et doivent être vérifiées. "
-            "L'IA reçoit uniquement votre question et la structure des tables, jamais les noms ni les e-mails. "
+    st.info("Les requêtes sont rédigées par une IA générative (Google Gemini) ou, à défaut, par un moteur local à règles fixes : "
+            "vérifiez-les. L'IA reçoit uniquement votre question et la structure des tables, jamais les noms ni les e-mails. "
             "La requête utilisée est toujours affichée et s'exécute en lecture seule.")
     t = load(db)
     p = kpi.enrich(t, reference_date())
     tables = ai.analysis_tables(p, t)
 
-    if ai.configured():
-        with st.form("question"):
-            q = st.text_area("Votre question", placeholder="Ex. : Combien de projets agricoles sont en retard dans la cohorte 2026 ?", max_chars=500)
-            go = st.form_submit_button("Demander à l'assistant", type="primary")
-        if go and len(q.strip()) >= 5:
+    gemini_ok = ai.configured()
+    if gemini_ok:
+        st.caption("Moteur : Google Gemini (IA générative). En cas d'indisponibilité, le moteur local prend le relais.")
+    else:
+        names = ", ".join(ai.secret_names()) or "aucun"
+        st.warning("Gemini n'est pas configuré : la clé GEMINI_API_KEY est introuvable dans les secrets. "
+                   "Les questions sont traitées par le moteur local (règles fixes, sans IA générative).")
+        if user["role"] == "Administrateur":
+            st.caption(f"Diagnostic pour l'administrateur : secrets présents (noms seulement) : {names}.")
+
+    with st.form("question"):
+        q = st.text_area("Votre question", placeholder="Ex. : Combien de projets agricoles sont en retard dans la cohorte 2026 ?", max_chars=500)
+        go = st.form_submit_button("Demander à l'assistant", type="primary")
+    st.caption("Exemples : " + " · ".join(f"« {e} »" for e in local_nlq.EXEMPLES_LIBRES[:4]))
+
+    if go and len(q.strip()) >= 5:
+        rep, moteur = None, None
+        if gemini_ok:
             with st.spinner("L'assistant prépare la requête..."):
                 try:
-                    rep = ai.ask_gemini(q.strip())
+                    rep = ai.ask_gemini(q.strip()); moteur = "Gemini"
                 except Exception as e:
-                    st.error(str(e))
-                    _log(db, user, q, None, "Erreur")
+                    st.info(f"Gemini indisponible ({e}). Le moteur local prend le relais.")
                     rep = None
-            if rep:
-                if not rep["sql"]:
-                    st.warning(rep["explication"] or "Je ne trouve pas cette information dans les données disponibles.")
-                    _log(db, user, q, None, "Sans réponse")
-                else:
-                    _show(db, user, q, rep["sql"], rep["explication"], rep["graphique"], tables, "Réussie")
-    else:
-        st.warning("L'assistant IA n'est pas configuré (clé GEMINI_API_KEY absente). Les questions types restent disponibles.")
+            if rep and not rep["sql"]:
+                st.warning(rep["explication"] or "Je ne trouve pas cette information dans les données disponibles.")
+                _log(db, user, q, None, "Sans réponse")
+                rep, moteur = None, "fin"
+        if rep is None and moteur != "fin":
+            rep = local_nlq.translate(q.strip()); moteur = "Moteur local"
+            if rep is None:
+                st.warning("Je n'ai pas compris la question. Reformulez-la avec un indicateur (projets, retards, prototypes, "
+                           "taux de sélection, porteuses, financements, avancement) et, si besoin, un domaine ou une année.")
+                _log(db, user, q, None, "Non comprise")
+        if rep and rep.get("sql"):
+            st.caption(f"Réponse produite par : {moteur}")
+            _show(db, user, q, rep["sql"], rep["explication"], rep["graphique"], tables,
+                  "Réussie" if moteur == "Gemini" else "Moteur local")
 
     st.divider()
     st.markdown("**Questions types** (requêtes préparées par l'équipe, utilisables sans IA)")

@@ -81,8 +81,39 @@ EXEMPLES = {
 }
 
 
+KEY_NAMES = ("GEMINI_API_KEY", "GOOGLE_API_KEY", "GEMINI_KEY", "API_KEY_GEMINI", "gemini_api_key", "google_api_key")
+
+
+def gemini_key():
+    """Cherche la clé Gemini sous plusieurs noms possibles, y compris dans une section [gemini]."""
+    for n in KEY_NAMES:
+        v = secret(n)
+        if v and str(v).strip().strip('"').strip("'"):
+            return str(v).strip().strip('"').strip("'")
+    try:
+        import streamlit as st
+        for sec in ("gemini", "GEMINI", "google", "api"):
+            if sec in st.secrets:
+                d = st.secrets[sec]
+                for n in ("api_key", "API_KEY", "key", "GEMINI_API_KEY"):
+                    if n in d and str(d[n]).strip():
+                        return str(d[n]).strip()
+    except Exception:
+        pass
+    return None
+
+
+def secret_names():
+    """Noms (jamais les valeurs) des secrets visibles, pour le diagnostic."""
+    try:
+        import streamlit as st
+        return sorted(st.secrets.keys())
+    except Exception:
+        return []
+
+
 def configured():
-    return bool(secret("GEMINI_API_KEY"))
+    return bool(gemini_key())
 
 
 def analysis_tables(p, t):
@@ -175,7 +206,7 @@ def _pick_model(key):
 
 def ask_gemini(question):
     """Renvoie un dict {sql, explication, graphique} ou lève une exception explicite."""
-    key = secret("GEMINI_API_KEY")
+    key = gemini_key()
     if not key:
         raise RuntimeError("Assistant non configuré : ajoutez GEMINI_API_KEY dans les secrets.")
     model = secret("GEMINI_MODEL") or _pick_model(key) or "gemini-2.5-flash"
