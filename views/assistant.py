@@ -43,7 +43,8 @@ def _show(db, user, question, sql, explication, kind, tables, statut_ok):
         return
     _log(db, user, question, sql_ok, statut_ok)
     if explication:
-        st.markdown(f"**Réponse :** {explication}")
+        # L'IA écrit cette phrase avant l'exécution : elle décrit le calcul, les chiffres viennent du tableau
+        st.markdown(f"**Ce que calcule la requête :** {explication}")
     with st.expander("Requête utilisée (à vérifier)"):
         st.code(sql_ok, language="sql")
     if df.empty:

@@ -48,6 +48,8 @@ Règles :
 - Utilise uniquement les tables et colonnes listées.
 - Une seule instruction SELECT (ou WITH ... SELECT), sans point-virgule.
 - Donne des noms de colonnes lisibles en français avec AS.
+- "explication" décrit en une phrase CE QUE CALCULE la requête, sans aucun chiffre :
+  tu ne connais pas les résultats, ils seront calculés après toi.
 - Si la question ne peut pas être traitée avec ces données, mets "sql" à null et explique
   pourquoi dans "explication". N'invente jamais de donnée.
 Réponds uniquement en JSON : {{"sql": "...", "explication": "une phrase", "graphique": "barres" | "ligne" | "camembert" | "aucun"}}
