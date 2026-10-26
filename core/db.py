@@ -197,6 +197,13 @@ class DB:
     def init(self):
         for ddl in SCHEMA:
             self.execute(ddl)
+        if self.pg:
+            # Supabase expose le schéma public via son API REST (Data API).
+            # Activer la sécurité au niveau des lignes (RLS) sans aucune règle
+            # bloque tout accès par cette API. L'application, connectée avec le
+            # rôle propriétaire des tables, n'est pas concernée.
+            for t in TABLES:
+                self.execute(f"ALTER TABLE {t} ENABLE ROW LEVEL SECURITY")
         if int(self.query("SELECT COUNT(*) AS n FROM cohortes").iloc[0, 0]) == 0:
             self._seed()
 
