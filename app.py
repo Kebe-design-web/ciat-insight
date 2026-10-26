@@ -20,8 +20,18 @@ common.style()
 try:
     db = common.get_db()
 except Exception as e:
+    import re as _re
     st.error("Connexion à la base de données impossible. Vérifiez DATABASE_URL dans les secrets.")
-    st.caption(f"Détail technique : {type(e).__name__}")
+    msg = str(e).strip().splitlines()[0] if str(e).strip() else ""
+    msg = _re.sub(r"postgres(ql)?://\S+", "[adresse masquée]", msg)  # ne jamais afficher l'adresse complète
+    st.caption(f"Détail technique : {type(e).__name__} : {msg[:300]}")
+    low = msg.lower()
+    if "password authentication failed" in low:
+        st.info("Le mot de passe dans DATABASE_URL ne correspond pas à celui de la base Supabase.")
+    elif "tenant or user not found" in low:
+        st.info("L'identifiant ou le serveur de l'adresse est incorrect : recopiez l'adresse « Session pooler » de Supabase.")
+    elif "could not translate host name" in low or "name or service not known" in low:
+        st.info("Le nom du serveur dans DATABASE_URL est incorrect (faute de frappe ou caractère en trop).")
     st.stop()
 
 ROUTES = {
