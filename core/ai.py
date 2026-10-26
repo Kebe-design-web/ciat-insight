@@ -144,17 +144,51 @@ def run_sql(sql, tables, limit=500):
         con.close()
 
 
+_MODEL_CACHE = {}
+
+
+def _pick_model(key):
+    """Choisit automatiquement un modèle Gemini « flash » disponible pour cette clé."""
+    if "name" in _MODEL_CACHE:
+        return _MODEL_CACHE["name"]
+    try:
+        r = requests.get("https://generativelanguage.googleapis.com/v1beta/models",
+                         headers={"x-goog-api-key": key}, params={"pageSize": 200}, timeout=20)
+        models = r.json().get("models", []) if r.status_code == 200 else []
+    except Exception:
+        return None
+    usable = [m["name"].split("/", 1)[-1] for m in models
+              if "generateContent" in m.get("supportedGenerationMethods", [])]
+    def score(n):
+        stable = not any(w in n for w in ("preview", "exp", "lite", "image", "tts", "live", "audio", "thinking"))
+        nums = [float(x) for x in re.findall(r"gemini-(\d+(?:\.\d+)?)", n)]
+        return ("flash" in n, stable, nums[0] if nums else 0.0)
+    gemini = [n for n in usable if n.startswith("gemini-")]
+    if not gemini:
+        return None
+    best = max(gemini, key=score)
+    _MODEL_CACHE["name"] = best
+    return best
+
+
 def ask_gemini(question):
     """Renvoie un dict {sql, explication, graphique} ou lève une exception explicite."""
     key = secret("GEMINI_API_KEY")
     if not key:
         raise RuntimeError("Assistant non configuré : ajoutez GEMINI_API_KEY dans les secrets.")
-    model = secret("GEMINI_MODEL", "gemini-2.5-flash")
+    model = secret("GEMINI_MODEL") or _pick_model(key) or "gemini-2.5-flash"
     body = {
         "contents": [{"role": "user", "parts": [{"text": PROMPT.format(schema=SCHEMA_TEXT, question=question)}]}],
         "generationConfig": {"temperature": 0, "responseMimeType": "application/json"},
     }
     r = requests.post(GEMINI_URL.format(model=model), headers={"x-goog-api-key": key}, json=body, timeout=40)
+    if r.status_code == 404:
+        # Modèle retiré ou mal nommé : on en cherche un disponible et on réessaie une fois
+        _MODEL_CACHE.clear()
+        other = _pick_model(key)
+        if other and other != model:
+            model = other
+            r = requests.post(GEMINI_URL.format(model=model), headers={"x-goog-api-key": key}, json=body, timeout=40)
     if r.status_code == 429:
         raise RuntimeError("Quota de l'API d'IA dépassé. Réessayez plus tard ou utilisez une question type.")
     if r.status_code != 200:

@@ -59,7 +59,7 @@ ciat-insight/
 
 ### 2. Clé Gemini
 1. Aller sur https://aistudio.google.com, se connecter avec un compte Google, créer une clé d'API.
-2. Vérifier dans la documentation Google le nom d'un modèle disponible (par défaut le code utilise `gemini-2.5-flash` ; le changer dans `GEMINI_MODEL` si besoin).
+2. Le modèle est choisi automatiquement (le plus récent de la famille Flash disponible pour la clé). Pour en imposer un, renseigner `GEMINI_MODEL`.
 
 ### 3. Streamlit Community Cloud
 1. Publier ce dossier sur GitHub (dépôt public ou privé). Le fichier `secrets.toml` ne doit pas être publié (il est exclu par `.gitignore`).
