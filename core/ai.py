@@ -180,56 +180,74 @@ def run_sql(sql, tables, limit=500):
 _MODEL_CACHE = {}
 
 
-def _pick_model(key):
-    """Choisit automatiquement un modèle Gemini « flash » disponible pour cette clé."""
-    if "name" in _MODEL_CACHE:
-        return _MODEL_CACHE["name"]
+def _candidates(key):
+    """Liste ordonnée de modèles Gemini utilisables pour cette clé (Flash stables d'abord)."""
+    if "list" in _MODEL_CACHE:
+        return _MODEL_CACHE["list"]
     try:
         r = requests.get("https://generativelanguage.googleapis.com/v1beta/models",
                          headers={"x-goog-api-key": key}, params={"pageSize": 200}, timeout=20)
         models = r.json().get("models", []) if r.status_code == 200 else []
     except Exception:
-        return None
+        models = []
     usable = [m["name"].split("/", 1)[-1] for m in models
               if "generateContent" in m.get("supportedGenerationMethods", [])]
+
     def score(n):
-        stable = not any(w in n for w in ("preview", "exp", "lite", "image", "tts", "live", "audio", "thinking"))
+        stable = not any(w in n for w in ("preview", "exp", "image", "tts", "live", "audio", "thinking", "embedding"))
         nums = [float(x) for x in re.findall(r"gemini-(\d+(?:\.\d+)?)", n)]
-        return ("flash" in n, stable, nums[0] if nums else 0.0)
-    gemini = [n for n in usable if n.startswith("gemini-")]
-    if not gemini:
-        return None
-    best = max(gemini, key=score)
-    _MODEL_CACHE["name"] = best
-    return best
+        return ("flash" in n, stable, "lite" not in n, nums[0] if nums else 0.0)
+    gemini = sorted((n for n in usable if n.startswith("gemini-")), key=score, reverse=True)
+    for fallback in ("gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash"):
+        if fallback not in gemini:
+            gemini.append(fallback)
+    _MODEL_CACHE["list"] = gemini[:5]
+    return _MODEL_CACHE["list"]
+
+
+def _pick_model(key):
+    c = _candidates(key)
+    return c[0] if c else None
 
 
 def ask_gemini(question):
-    """Renvoie un dict {sql, explication, graphique} ou lève une exception explicite."""
+    """Renvoie un dict {sql, explication, graphique} ou lève une exception explicite.
+
+    En cas de surcharge (503, 500) ou de modèle introuvable (404), essaie le modèle
+    suivant de la liste ; en cas de quota (429), attend 2 secondes et réessaie une fois.
+    """
+    import time
     key = gemini_key()
     if not key:
         raise RuntimeError("Assistant non configuré : ajoutez GEMINI_API_KEY dans les secrets.")
-    model = secret("GEMINI_MODEL") or _pick_model(key) or "gemini-2.5-flash"
+    forced = secret("GEMINI_MODEL")
+    models = [forced] if forced else _candidates(key)
     body = {
         "contents": [{"role": "user", "parts": [{"text": PROMPT.format(schema=SCHEMA_TEXT, question=question)}]}],
         "generationConfig": {"temperature": 0, "responseMimeType": "application/json"},
     }
-    r = requests.post(GEMINI_URL.format(model=model), headers={"x-goog-api-key": key}, json=body, timeout=40)
-    if r.status_code == 404:
-        # Modèle retiré ou mal nommé : on en cherche un disponible et on réessaie une fois
-        _MODEL_CACHE.clear()
-        other = _pick_model(key)
-        if other and other != model:
-            model = other
-            r = requests.post(GEMINI_URL.format(model=model), headers={"x-goog-api-key": key}, json=body, timeout=40)
-    if r.status_code == 429:
-        raise RuntimeError("Quota de l'API d'IA dépassé. Réessayez plus tard ou utilisez une question type.")
-    if r.status_code != 200:
-        raise RuntimeError(f"Le service d'IA a répondu une erreur ({r.status_code}). Vérifiez la clé et le nom du modèle.")
-    try:
-        text = r.json()["candidates"][0]["content"]["parts"][0]["text"]
-        text = re.sub(r"^```(json)?|```$", "", text.strip()).strip()
-        out = json.loads(text)
-    except Exception:
-        raise RuntimeError("Réponse de l'IA illisible. Reformulez la question.")
-    return {"sql": out.get("sql"), "explication": out.get("explication", ""), "graphique": out.get("graphique", "aucun")}
+    last = None
+    for model in models[:4]:
+        for attempt in range(2):
+            try:
+                r = requests.post(GEMINI_URL.format(model=model), headers={"x-goog-api-key": key}, json=body, timeout=40)
+            except requests.RequestException:
+                last = "réseau"; break
+            last = r.status_code
+            if r.status_code == 200:
+                try:
+                    text = r.json()["candidates"][0]["content"]["parts"][0]["text"]
+                    text = re.sub(r"^```(json)?|```$", "", text.strip()).strip()
+                    out = json.loads(text)
+                except Exception:
+                    raise RuntimeError("Réponse de l'IA illisible. Reformulez la question.")
+                return {"sql": out.get("sql"), "explication": out.get("explication", ""),
+                        "graphique": out.get("graphique", "aucun"), "modele": model}
+            if r.status_code in (401, 403):
+                raise RuntimeError("Clé d'API refusée par Google : vérifiez GEMINI_API_KEY dans les secrets.")
+            if r.status_code in (429, 500, 503) and attempt == 0:
+                time.sleep(2); continue
+            break  # 404, 400 ou échec répété : modèle suivant
+    if last == 429:
+        raise RuntimeError("Quota gratuit de Gemini atteint pour le moment.")
+    raise RuntimeError(f"Service Gemini indisponible pour le moment (code {last}).")

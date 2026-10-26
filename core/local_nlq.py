@@ -105,8 +105,19 @@ def translate(question):
             sql = (f"SELECT source AS Source, SUM(montant_fcfa) AS \"Montant (FCFA)\" FROM financements WHERE {' AND '.join(w)} "
                    f"GROUP BY source ORDER BY 2 DESC")
             return {"sql": sql, "explication": "Somme des financements accordés, par source" + (" (" + ", ".join(d for d in desc if d.startswith('cohorte')) + ")" if any(d.startswith('cohorte') for d in desc) else "") + ".", "graphique": "barres"}
+        moyen = _has(q, r"moyen|moyenne")
+        maxi = _has(q, r"plus (gros|grand|eleve)|maximum|max\b")
         if any(c.startswith(("domaine", "statut")) for c in where) or group in ("domaine", "statut", "genre_porteur"):
+            if moyen:
+                return build("ROUND(AVG(financement_fcfa)) AS \"Montant moyen (FCFA)\"", extra_where=["financement_fcfa > 0"],
+                             label="montant moyen des financements accordés, parmi les projets financés")
+            if maxi:
+                return build("MAX(financement_fcfa) AS \"Montant maximal (FCFA)\"", label="plus gros financement accordé à un projet")
             return build("SUM(financement_fcfa) AS \"Financements (FCFA)\"", label="somme des financements accordés aux projets")
+        if moyen:
+            return build("ROUND(AVG(montant_fcfa)) AS \"Montant moyen (FCFA)\"", table="financements", extra_where=["statut = 'Accordé'"], label="montant moyen d'un financement accordé")
+        if maxi:
+            return build("MAX(montant_fcfa) AS \"Montant maximal (FCFA)\"", table="financements", extra_where=["statut = 'Accordé'"], label="plus gros financement accordé")
         return build("SUM(montant_fcfa) AS \"Montant (FCFA)\"", table="financements", extra_where=["statut = 'Accordé'"], label="somme des financements accordés")
     if _has(q, r"partenari"):
         sql = "SELECT type_partenaire AS \"Type de partenaire\", COUNT(*) AS Partenariats FROM partenariats GROUP BY type_partenaire ORDER BY 2 DESC"

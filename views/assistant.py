@@ -85,9 +85,9 @@ def render(db, user):
         if gemini_ok:
             with st.spinner("L'assistant prépare la requête..."):
                 try:
-                    rep = ai.ask_gemini(q.strip()); moteur = "Gemini"
+                    rep = ai.ask_gemini(q.strip()); moteur = f"Gemini ({rep.get('modele', '')})"
                 except Exception as e:
-                    st.info(f"Gemini indisponible ({e}). Le moteur local prend le relais.")
+                    st.info(f"{e} Le moteur local prend le relais.")
                     rep = None
             if rep and not rep["sql"]:
                 st.warning(rep["explication"] or "Je ne trouve pas cette information dans les données disponibles.")
@@ -102,7 +102,7 @@ def render(db, user):
         if rep and rep.get("sql"):
             st.caption(f"Réponse produite par : {moteur}")
             _show(db, user, q, rep["sql"], rep["explication"], rep["graphique"], tables,
-                  "Réussie" if moteur == "Gemini" else "Moteur local")
+                  "Réussie" if moteur.startswith("Gemini") else "Moteur local")
 
     st.divider()
     st.markdown("**Questions types** (requêtes préparées par l'équipe, utilisables sans IA)")
