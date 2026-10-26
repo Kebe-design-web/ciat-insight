@@ -1,0 +1,61 @@
+id_projet,titre,domaine,id_porteur,id_cohorte,id_mentor,date_depot,selectionne,statut
+1,Annuaire des artisans formés,Éducation et insertion,1,1,,2024-03-19,Non,Rejeté
+2,Foyer amélioré à briquettes de coques,Énergie renouvelable,2,1,4,2024-01-17,Oui,Prototype réalisé
+3,Transformation du bissap en sirop,Agriculture et environnement,3,1,3,2024-03-18,Oui,Prototype réalisé
+4,Savon artisanal au karité contrôlé,Pharmaceutique et biomédical,4,1,,2024-01-19,Non,Rejeté
+5,Kiosque de recharge solaire,Énergie renouvelable,5,1,,2024-01-21,Non,Rejeté
+6,Application de rappel de prise de médicaments,Pharmaceutique et biomédical,6,1,5,2024-03-17,Oui,Prototype réalisé
+7,Kit de maintenance préventive pour moulins,Mécanique et maintenance,7,1,,2024-02-09,Non,Rejeté
+8,Location d'outils entre artisans,Services et entrepreneuriat,8,1,,2024-03-08,Non,Rejeté
+9,Comptabilité simplifiée pour commerçantes,Services et entrepreneuriat,9,1,7,2024-03-17,Oui,Prototype réalisé
+10,Mini-réseau solaire pour cases de santé,Énergie renouvelable,10,1,,2024-03-07,Non,Rejeté
+11,Chatbot d'orientation scolaire en wolof,TIC et IA,11,1,,2024-02-27,Non,Rejeté
+12,Glacière solaire pour vaccins,Pharmaceutique et biomédical,12,1,5,2024-01-31,Oui,Prototype réalisé
+13,Pédalier de broyage d'arachide,Mécanique et maintenance,13,1,2,2024-02-03,Oui,Abandonné
+14,Plateforme de stages pour apprenants ISEP,Éducation et insertion,14,1,,2024-01-23,Non,Rejeté
+15,Outil de détection de maladies du mil par photo,TIC et IA,15,1,,2024-01-15,Non,Rejeté
+16,Application de suivi des cotisations de tontines,TIC et IA,16,1,,2024-03-11,Non,Rejeté
+17,Atelier mobile de réparation de motopompes,Mécanique et maintenance,17,1,,2024-01-29,Non,Rejeté
+18,Service de livraison en tricycle électrique,Services et entrepreneuriat,18,1,7,2024-02-24,Oui,Abandonné
+19,Savon artisanal au karité contrôlé,Pharmaceutique et biomédical,19,2,,2025-02-10,Non,Rejeté
+20,Outil de détection de maladies du mil par photo,TIC et IA,20,2,,2025-02-17,Non,Rejeté
+21,Compost accéléré à partir de déchets de marché,Agriculture et environnement,21,2,3,2025-02-20,Oui,Prototype réalisé
+22,Application de rappel de prise de médicaments,Pharmaceutique et biomédical,22,2,,2025-03-18,Non,Rejeté
+23,Kiosque de recharge solaire,Énergie renouvelable,23,2,,2025-01-19,Non,Rejeté
+24,Plateforme de stages pour apprenants ISEP,Éducation et insertion,24,2,6,2025-03-11,Oui,Prototype réalisé
+25,Foyer amélioré à briquettes de coques,Énergie renouvelable,25,2,,2025-02-28,Non,Rejeté
+26,Plateforme de réservation de tailleurs,TIC et IA,26,2,,2025-01-21,Non,Rejeté
+27,Irrigation goutte-à-goutte à bas coût,Agriculture et environnement,27,2,3,2025-03-05,Oui,Prototype réalisé
+28,Transformation du bissap en sirop,Agriculture et environnement,28,2,3,2025-02-12,Oui,Prototype réalisé
+29,Service de livraison en tricycle électrique,Services et entrepreneuriat,29,2,,2025-02-13,Non,Rejeté
+30,Pédalier de broyage d'arachide,Mécanique et maintenance,30,2,,2025-01-13,Non,Rejeté
+31,Application de suivi des cotisations de tontines,TIC et IA,31,2,,2025-01-10,Non,Rejeté
+32,Cours de code en langues nationales,Éducation et insertion,32,2,6,2025-01-09,Oui,Abandonné
+33,Mini-réseau solaire pour cases de santé,Énergie renouvelable,33,2,4,2025-02-03,Oui,Abandonné
+34,Atelier mobile de réparation de motopompes,Mécanique et maintenance,34,2,2,2025-01-08,Oui,En incubation
+35,Glacière solaire pour vaccins,Pharmaceutique et biomédical,35,2,,2025-03-12,Non,Rejeté
+36,Comptabilité simplifiée pour commerçantes,Services et entrepreneuriat,36,2,,2025-03-21,Non,Rejeté
+37,Chatbot d'orientation scolaire en wolof,TIC et IA,37,2,,2025-03-21,Non,Rejeté
+38,Location d'outils entre artisans,Services et entrepreneuriat,38,2,7,2025-01-26,Oui,En incubation
+39,Kit de maintenance préventive pour moulins,Mécanique et maintenance,39,2,,2025-02-12,Non,Rejeté
+40,Annuaire des artisans formés,Éducation et insertion,40,2,,2025-01-22,Non,Rejeté
+41,Cours de code en langues nationales,Éducation et insertion,41,3,,2026-02-04,Non,Rejeté
+42,Plateforme de réservation de tailleurs,TIC et IA,42,3,,2026-02-12,Non,Rejeté
+43,Savon artisanal au karité contrôlé,Pharmaceutique et biomédical,43,3,,2026-02-17,Non,Rejeté
+44,Comptabilité simplifiée pour commerçantes,Services et entrepreneuriat,44,3,7,2026-03-16,Oui,En incubation
+45,Irrigation goutte-à-goutte à bas coût,Agriculture et environnement,45,3,3,2026-01-22,Oui,En incubation
+46,Foyer amélioré à briquettes de coques,Énergie renouvelable,46,3,,2026-01-07,Non,Rejeté
+47,Séchoir solaire pour mangues,Agriculture et environnement,47,3,,2026-02-01,Non,Rejeté
+48,Pédalier de broyage d'arachide,Mécanique et maintenance,48,3,,2026-01-07,Non,Rejeté
+49,Kiosque de recharge solaire,Énergie renouvelable,49,3,4,2026-01-27,Oui,En incubation
+50,Transformation du bissap en sirop,Agriculture et environnement,50,3,,2026-01-11,Non,Rejeté
+51,Mini-réseau solaire pour cases de santé,Énergie renouvelable,51,3,4,2026-02-18,Oui,En incubation
+52,Atelier mobile de réparation de motopompes,Mécanique et maintenance,52,3,,2026-03-08,Non,Rejeté
+53,Outil de détection de maladies du mil par photo,TIC et IA,53,3,,2026-01-14,Non,Rejeté
+54,Compost accéléré à partir de déchets de marché,Agriculture et environnement,54,3,3,2026-01-15,Oui,En incubation
+55,Location d'outils entre artisans,Services et entrepreneuriat,55,3,,2026-01-22,Non,Rejeté
+56,Annuaire des artisans formés,Éducation et insertion,56,3,,2026-01-30,Non,Rejeté
+57,Glacière solaire pour vaccins,Pharmaceutique et biomédical,57,3,,2026-01-10,Non,Rejeté
+58,Kit de maintenance préventive pour moulins,Mécanique et maintenance,58,3,2,2026-01-27,Oui,En incubation
+59,Application de suivi des cotisations de tontines,TIC et IA,59,3,,2026-02-20,Non,Rejeté
+60,Chatbot d'orientation scolaire en wolof,TIC et IA,60,3,1,2026-03-11,Oui,En incubation

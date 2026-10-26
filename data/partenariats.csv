@@ -1,0 +1,9 @@
+id_partenariat,nom_partenaire,type_partenaire,id_projet,date_debut,date_fin
+1,Entreprise Alpha Énergie (fictif),Entreprise,21,2024-10-22,2025-10-22
+2,Coopérative maraîchère des Niayes (fictif),Coopérative,18,2026-03-09,2027-08-31
+3,Laboratoire Beta Santé (fictif),Laboratoire,49,2025-05-17,2026-05-17
+4,Mairie partenaire (fictif),Collectivité,34,2025-07-07,2027-07-07
+5,Startup Gamma Tech (fictif),Entreprise,18,2025-08-14,2027-02-05
+6,ONG Delta Environnement (fictif),ONG,38,2025-03-13,2027-03-13
+7,Atelier Epsilon Mécanique (fictif),Entreprise,44,2025-11-24,2027-11-24
+8,Banque Zeta (fictif),Institution financière,18,2024-08-02,2025-08-02

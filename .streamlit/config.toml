@@ -1,0 +1,14 @@
+# Thème aux couleurs de la charte ISEP (marron et beige)
+[theme]
+base = "light"
+primaryColor = "#4A2C1D"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F5EDE4"
+textColor = "#2B1A10"
+font = "sans serif"
+
+[server]
+maxUploadSize = 10
+
+[browser]
+gatherUsageStats = false

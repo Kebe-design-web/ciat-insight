@@ -1,0 +1,168 @@
+"""
+Assistant IA : question en français -> requête SQL générée par Gemini -> exécution sécurisée.
+
+Garde-fous :
+1. Le modèle reçoit la question et la STRUCTURE des tables, jamais les données.
+2. Les tables exposées ne contiennent ni nom, ni prénom, ni e-mail.
+3. La requête est contrôlée (SELECT uniquement, une seule instruction).
+4. Elle s'exécute sur une copie en mémoire, avec un autorisateur SQLite qui
+   refuse toute opération autre que la lecture.
+5. La requête est toujours affichée pour vérification humaine.
+"""
+import json
+import re
+import sqlite3
+
+import pandas as pd
+import requests
+
+from core.db import secret
+
+GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+
+SCHEMA_TEXT = """
+Tables disponibles (SQLite). Les dates sont du texte au format 'AAAA-MM-JJ'.
+
+projets(id_projet, titre, domaine, annee_cohorte, statut, selectionne, date_depot,
+        genre_porteur, prototype_valide, en_retard, jours_retard, avancement_pct, financement_fcfa)
+  - domaine : 'TIC et IA', 'Mécanique et maintenance', 'Agriculture et environnement',
+    'Énergie renouvelable', 'Pharmaceutique et biomédical', 'Éducation et insertion',
+    'Services et entrepreneuriat'
+  - annee_cohorte : '2024', '2025', '2026' (texte)
+  - statut : 'Rejeté', 'En incubation', 'Prototype réalisé', 'Abandonné', 'Déposé'
+  - selectionne, prototype_valide, en_retard : 'Oui' ou 'Non'
+  - genre_porteur : 'F' ou 'H'
+  - avancement_pct : nombre entre 0 et 100 (part des jalons validés)
+jalons(id_projet, type_jalon, date_prevue, date_realisation, statut)
+  - type_jalon : 'Cadrage', 'Étude de marché', 'Maquette', 'Prototype', 'Pitch final'
+  - statut : 'Non démarré', 'En cours', 'Validé', 'Annulé'
+financements(id_projet, source, montant_fcfa, date_octroi, statut, annee_cohorte)
+partenariats(id_projet, nom_partenaire, type_partenaire, date_debut, date_fin)
+"""
+
+PROMPT = """Tu es l'assistant d'analyse de données du CIAT (Centre d'Innovation, d'Application
+et de Transfert de l'ISEP Amadou Trawaré, Sénégal).
+Ta seule tâche : traduire la question de l'utilisateur en UNE requête SQL SQLite de lecture.
+{schema}
+Règles :
+- Utilise uniquement les tables et colonnes listées.
+- Une seule instruction SELECT (ou WITH ... SELECT), sans point-virgule.
+- Donne des noms de colonnes lisibles en français avec AS.
+- Si la question ne peut pas être traitée avec ces données, mets "sql" à null et explique
+  pourquoi dans "explication". N'invente jamais de donnée.
+Réponds uniquement en JSON : {{"sql": "...", "explication": "une phrase", "graphique": "barres" | "ligne" | "camembert" | "aucun"}}
+
+Question : {question}
+"""
+
+FORBIDDEN = re.compile(
+    r"\b(insert|update|delete|drop|alter|create|replace|attach|detach|pragma|vacuum|reindex|"
+    r"analyze|begin|commit|rollback|savepoint|release|load_extension|trigger)\b", re.IGNORECASE)
+
+# Questions types utilisables sans clé d'API (requêtes écrites par l'équipe, pas par l'IA)
+EXEMPLES = {
+    "Combien de projets sont en retard par domaine ?":
+        "SELECT domaine AS Domaine, COUNT(*) AS \"Projets en retard\" FROM projets WHERE en_retard = 'Oui' "
+        "GROUP BY domaine ORDER BY 2 DESC",
+    "Compare le taux de sélection des cohortes":
+        "SELECT annee_cohorte AS Cohorte, ROUND(100.0 * SUM(selectionne = 'Oui') / COUNT(*), 1) AS \"Taux de sélection (%)\" "
+        "FROM projets GROUP BY annee_cohorte ORDER BY annee_cohorte",
+    "Quels domaines ont produit le plus de prototypes ?":
+        "SELECT domaine AS Domaine, COUNT(*) AS Prototypes FROM projets WHERE prototype_valide = 'Oui' "
+        "GROUP BY domaine ORDER BY 2 DESC",
+    "Quelle est la part des porteuses par cohorte ?":
+        "SELECT annee_cohorte AS Cohorte, ROUND(100.0 * SUM(genre_porteur = 'F') / COUNT(*), 1) AS \"Part des porteuses (%)\" "
+        "FROM projets GROUP BY annee_cohorte ORDER BY annee_cohorte",
+    "Montant des financements par source":
+        "SELECT source AS Source, SUM(montant_fcfa) AS \"Montant (FCFA)\" FROM financements WHERE statut = 'Accordé' "
+        "GROUP BY source ORDER BY 2 DESC",
+}
+
+
+def configured():
+    return bool(secret("GEMINI_API_KEY"))
+
+
+def analysis_tables(p, t):
+    """Tables exposées à l'assistant : aucune donnée nominative."""
+    d = lambda s: s.dt.strftime("%Y-%m-%d")
+    proj = pd.DataFrame({
+        "id_projet": p["id_projet"], "titre": p["titre"], "domaine": p["domaine"],
+        "annee_cohorte": p["annee"].astype(str), "statut": p["statut"], "selectionne": p["selectionne"],
+        "date_depot": d(p["date_depot"]), "genre_porteur": p["genre"],
+        "prototype_valide": p["prototype"].map({True: "Oui", False: "Non"}),
+        "en_retard": p["en_retard"].map({True: "Oui", False: "Non"}),
+        "jours_retard": p["jours_retard"], "avancement_pct": (p["avancement"] * 100).round(1),
+        "financement_fcfa": p["financement"],
+    })
+    j = t["jalons"].copy()
+    jal = pd.DataFrame({"id_projet": j["id_projet"], "type_jalon": j["type_jalon"], "date_prevue": d(j["date_prevue"]),
+                        "date_realisation": d(j["date_realisation"]), "statut": j["statut"]})
+    f = t["financements"].merge(p[["id_projet", "annee"]], on="id_projet", how="left")
+    fin = pd.DataFrame({"id_projet": f["id_projet"], "source": f["source"], "montant_fcfa": f["montant_fcfa"],
+                        "date_octroi": d(f["date_octroi"]), "statut": f["statut"], "annee_cohorte": f["annee"].astype(str)})
+    pa = t["partenariats"]
+    par = pd.DataFrame({"id_projet": pa["id_projet"], "nom_partenaire": pa["nom_partenaire"],
+                        "type_partenaire": pa["type_partenaire"], "date_debut": d(pa["date_debut"]), "date_fin": d(pa["date_fin"])})
+    return {"projets": proj, "jalons": jal, "financements": fin, "partenariats": par}
+
+
+def check_sql(sql):
+    """Renvoie (requête nettoyée, None) ou (None, message d'erreur)."""
+    if not sql or not isinstance(sql, str):
+        return None, "Aucune requête fournie."
+    s = sql.strip().rstrip(";").strip()
+    if ";" in s:
+        return None, "Une seule instruction est autorisée."
+    if not re.match(r"^(select|with)\b", s, re.IGNORECASE):
+        return None, "Seules les requêtes de lecture (SELECT) sont autorisées."
+    if FORBIDDEN.search(s):
+        return None, "La requête contient une instruction interdite."
+    return s, None
+
+
+def _authorizer(action, *args):
+    allowed = {sqlite3.SQLITE_SELECT, sqlite3.SQLITE_READ, sqlite3.SQLITE_FUNCTION,
+               getattr(sqlite3, "SQLITE_RECURSIVE", 33)}
+    return sqlite3.SQLITE_OK if action in allowed else sqlite3.SQLITE_DENY
+
+
+def run_sql(sql, tables, limit=500):
+    con = sqlite3.connect(":memory:")
+    try:
+        for name, df in tables.items():
+            df.to_sql(name, con, index=False)
+        con.set_authorizer(_authorizer)
+        steps = {"n": 0}
+
+        def guard():  # interrompt une requête trop longue
+            steps["n"] += 1
+            return 1 if steps["n"] > 2000 else 0
+        con.set_progress_handler(guard, 1000)
+        return pd.read_sql_query(f"SELECT * FROM ({sql}) LIMIT {int(limit)}", con)
+    finally:
+        con.close()
+
+
+def ask_gemini(question):
+    """Renvoie un dict {sql, explication, graphique} ou lève une exception explicite."""
+    key = secret("GEMINI_API_KEY")
+    if not key:
+        raise RuntimeError("Assistant non configuré : ajoutez GEMINI_API_KEY dans les secrets.")
+    model = secret("GEMINI_MODEL", "gemini-2.5-flash")
+    body = {
+        "contents": [{"role": "user", "parts": [{"text": PROMPT.format(schema=SCHEMA_TEXT, question=question)}]}],
+        "generationConfig": {"temperature": 0, "responseMimeType": "application/json"},
+    }
+    r = requests.post(GEMINI_URL.format(model=model), headers={"x-goog-api-key": key}, json=body, timeout=40)
+    if r.status_code == 429:
+        raise RuntimeError("Quota de l'API d'IA dépassé. Réessayez plus tard ou utilisez une question type.")
+    if r.status_code != 200:
+        raise RuntimeError(f"Le service d'IA a répondu une erreur ({r.status_code}). Vérifiez la clé et le nom du modèle.")
+    try:
+        text = r.json()["candidates"][0]["content"]["parts"][0]["text"]
+        text = re.sub(r"^```(json)?|```$", "", text.strip()).strip()
+        out = json.loads(text)
+    except Exception:
+        raise RuntimeError("Réponse de l'IA illisible. Reformulez la question.")
+    return {"sql": out.get("sql"), "explication": out.get("explication", ""), "graphique": out.get("graphique", "aucun")}
