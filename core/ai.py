@@ -227,10 +227,13 @@ def ask_gemini(question):
         "generationConfig": {"temperature": 0, "responseMimeType": "application/json"},
     }
     last = None
+    t0 = time.time()
     for model in models[:4]:
         for attempt in range(2):
+            if time.time() - t0 > 30:
+                raise RuntimeError("Gemini met trop de temps à répondre.")
             try:
-                r = requests.post(GEMINI_URL.format(model=model), headers={"x-goog-api-key": key}, json=body, timeout=40)
+                r = requests.post(GEMINI_URL.format(model=model), headers={"x-goog-api-key": key}, json=body, timeout=15)
             except requests.RequestException:
                 last = "réseau"; break
             last = r.status_code
@@ -241,6 +244,8 @@ def ask_gemini(question):
                     out = json.loads(text)
                 except Exception:
                     raise RuntimeError("Réponse de l'IA illisible. Reformulez la question.")
+                if not forced and _MODEL_CACHE.get("list") and model in _MODEL_CACHE["list"]:
+                    lst = _MODEL_CACHE["list"]; lst.remove(model); lst.insert(0, model)  # le prochain appel commence par lui
                 return {"sql": out.get("sql"), "explication": out.get("explication", ""),
                         "graphique": out.get("graphique", "aucun"), "modele": model}
             if r.status_code in (401, 403):

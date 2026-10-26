@@ -23,9 +23,9 @@ def _chart(df, kind):
     if kind == "camembert":
         plot(px.pie(df, names=x, values=y))
     elif kind == "ligne":
-        plot(px.line(df, x=x, y=y, markers=True))
+        plot(px.line(df, x=x, y=y, markers=True, color_discrete_sequence=["#4A2C1D"]))
     else:
-        fig = px.bar(df, x=x, y=y)
+        fig = px.bar(df, x=x, y=y, color_discrete_sequence=["#4A2C1D"])
         plot(fig)
 
 
@@ -50,6 +50,9 @@ def _show(db, user, question, sql, explication, kind, tables, statut_ok):
     if df.empty:
         st.info("La requête ne renvoie aucun résultat.")
         return
+    for c in df.columns:  # arrondi d'affichage
+        if str(df[c].dtype).startswith("float"):
+            df[c] = df[c].round(1)
     st.dataframe(df, hide_index=True, width="stretch")
     _chart(df, kind)
     st.download_button("Télécharger le résultat (CSV)", df.to_csv(index=False).encode("utf-8-sig"),
